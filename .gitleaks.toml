@@ -1,0 +1,15 @@
+# .gitleaks.toml — tune to reduce false positives
+title = "Gitleaks Config"
+
+[allowlist]
+  description = "Global allowlist"
+  paths = [
+    '''.env.example''',
+    '''.*\.md$''',
+  ]
+  regexes = [
+    # Ignore placeholder values in .env files
+    '''paste_your_token_here''',
+    '''your_.*_here''',
+    '''<.*>''',
+  ]

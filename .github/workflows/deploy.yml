@@ -1,0 +1,118 @@
+name: CI/CD →  Proxmox LXC
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DEPLOY_PATH: /opt/yolenolab   # path on your LXC where the repo lives
+
+jobs:
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # 1. SECRET SCAN — Gitleaks
+  # ────────────────────────────────────────────────────────────────────────────
+  secret-scan:
+    name: 🔐 Secret Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so Gitleaks can diff all commits
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # 2. YAML LINT — compose syntax
+  # ────────────────────────────────────────────────────────────────────────────
+  lint:
+    name: 🧹 YAML Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint compose.yml
+        run: yamllint -d "{extends: relaxed, rules: {line-length: {max: 120}}}" compose.yml
+
+      - name: Validate docker compose config
+        run: docker compose config --quiet
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # 3. IMAGE SCAN — Trivy vulnerability scan on all images in compose file
+  # ────────────────────────────────────────────────────────────────────────────
+  trivy-scan:
+    name: 🛡️ Image Scan (Trivy)
+    runs-on: ubuntu-latest
+    needs: [lint]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract images from compose.yml
+        id: images
+        run: |
+          images=$(grep -E '^\s+image:' compose.yml | awk '{print $2}' | tr '\n' ',')
+          echo "list=$images" >> $GITHUB_OUTPUT
+          echo "Found images: $images"
+
+      - name: Scan each image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ steps.images.outputs.list }}
+          scan-type: image
+          severity: CRITICAL,HIGH
+          exit-code: 1           # fail the job on HIGH/CRITICAL findings
+          ignore-unfixed: true   # skip vulns with no fix available yet
+          format: table
+
+      - name: Upload Trivy SARIF report
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-results.sarif
+        continue-on-error: true
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # 4. DEPLOY — SSH into LXC, git pull, docker compose up
+  #    Only runs on push to main (not on PRs)
+  # ────────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: 🚀 Deploy to Proxmox LXC
+    runs-on: ubuntu-latest
+    needs: [secret-scan, lint, trivy-scan]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production      # optional: adds a manual approval gate in GitHub
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host:        ${{ secrets.LXC_HOST }}
+          username:    ${{ secrets.LXC_USER }}
+          key:         ${{ secrets.LXC_SSH_KEY }}
+          port:        ${{ secrets.LXC_PORT }}   # default 22 if not set
+          script: |
+            set -e
+
+            echo "📦 Pulling latest changes..."
+            cd ${{ env.DEPLOY_PATH }}
+            git pull origin main
+
+            echo "🐳 Restarting updated services..."
+            docker compose pull --quiet
+            docker compose up -d --remove-orphans
+
+            echo "🧹 Pruning unused images..."
+            docker image prune -f
+
+            echo "✅ Deploy complete — $(date)"
