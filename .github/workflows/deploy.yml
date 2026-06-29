@@ -65,14 +65,13 @@ jobs:
           echo "Found images: $images"
 
       - name: Scan each image with Trivy
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.images.outputs.list }}
-          scan-type: image
-          severity: CRITICAL,HIGH
-          exit-code: 1 # fail the job on HIGH/CRITICAL findings
-          ignore-unfixed: true # skip vulns with no fix available yet
-          format: table
+        run: |
+           images=$(grep -E '^\s+image:' compose.yml | awk '{print $2}')
+          for img in $images; do
+            echo "Scanning $img ..."
+            trivy image --severity CRITICAL,HIGH --exit-code 1 --ignore-unfixed \
+              --format table "$img"
+          done
 
       - name: Upload Trivy SARIF report
         if: always()
