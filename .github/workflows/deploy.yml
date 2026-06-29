@@ -55,8 +55,7 @@ jobs:
     needs: [lint]
     strategy:
       matrix:
-        image:
-          [n8nio/n8n:stable, prom/prometheus:main, prom/node-exporter:master]
+        image: [prom/prometheus:main, prom/node-exporter:master]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
