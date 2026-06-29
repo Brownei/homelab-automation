@@ -56,7 +56,7 @@ jobs:
     strategy:
       matrix:
         image:
-          [n8nio/n8n:1.123.62, prom/prometheus:main, prom/node-exporter:master]
+          [n8nio/n8n:1.122.0, prom/prometheus:main, prom/node-exporter:master]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
