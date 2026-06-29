@@ -14,7 +14,7 @@ jobs:
   # 1. SECRET SCAN — Gitleaks
   # ────────────────────────────────────────────────────────────────────────────
   secret-scan:
-    name: 🔐 Secret Scan (Gitleaks)
+    name: Secret Scan (Gitleaks)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,7 +31,7 @@ jobs:
   # 2. YAML LINT — compose syntax
   # ────────────────────────────────────────────────────────────────────────────
   lint:
-    name: 🧹 YAML Lint
+    name: YAML Lint
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -50,7 +50,7 @@ jobs:
   # 3. IMAGE SCAN — Trivy vulnerability scan on all images in compose file
   # ────────────────────────────────────────────────────────────────────────────
   trivy-scan:
-    name: 🛡️ Image Scan (Trivy)
+    name: Image Scan (Trivy)
     runs-on: ubuntu-latest
     needs: [lint]
     steps:
@@ -60,7 +60,7 @@ jobs:
       - name: Extract images from compose.yml
         id: images
         run: |
-          images=$(grep -E '^\s+image:' compose.yml | awk '{print $2}' | tr '\n' ',')
+          images=$(grep -E '^\s+image:' compose.yml | awk '{print $2}' | paste -sd ',' -)
           echo "list=$images" >> $GITHUB_OUTPUT
           echo "Found images: $images"
 
@@ -86,7 +86,7 @@ jobs:
   #    Only runs on push to main (not on PRs)
   # ────────────────────────────────────────────────────────────────────────────
   deploy:
-    name: 🚀 Deploy to Proxmox LXC
+    name: Deploy to Proxmox LXC
     runs-on: ubuntu-latest
     needs: [secret-scan, lint, trivy-scan]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
