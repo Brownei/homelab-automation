@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  DEPLOY_PATH: /opt/yolenolab # path on your LXC where the repo lives
+  DEPLOY_PATH: /home/$USER/yolenolab # path on your LXC where the repo lives
 
 jobs:
   # ────────────────────────────────────────────────────────────────────────────
