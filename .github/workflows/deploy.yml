@@ -105,14 +105,10 @@ jobs:
             set -e
 
             echo "📦 Pulling latest changes..."
-            if [ -d "{{DEPLOY_PATH}}" ]; then
-              echo "Directory exists. Changing into it..."
-              cd {{DEPLOY_PATH}}
-            else
-              echo "Directory doesn't exist. Creating and changing into it..."
-              mkdir -p {{DEPLOY_PATH}}
-              cd {{DEPLOY_PATH}}
+            if [ ! -d "${{ env.DEPLOY_PATH }}/.git" ]; then
+              git clone https://github.com/${{ github.repository }}.git ${{ env.DEPLOY_PATH }}
             fi
+            cd ${{ env.DEPLOY_PATH }}
             git pull origin main
 
             echo "🐳 Restarting updated services..."
