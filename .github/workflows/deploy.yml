@@ -89,8 +89,13 @@ jobs:
     environment: production # optional: adds a manual approval gate in GitHub
 
     steps:
+      - name: Connect to Twingate
+        uses: twingate/github-action@v1
+        with:
+          service-key: ${{ secrets.TWINGATE_SERVICE_KEY }}
+
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.LXC_HOST }}
           username: ${{ secrets.LXC_USER }}
